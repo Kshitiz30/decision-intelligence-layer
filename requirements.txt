@@ -1,0 +1,11 @@
+# Decision Intelligence Layer (DIL) - Core Requirements
+# Updated for Python 3.13 compatibility (using latest versions for wheel availability)
+
+fastapi
+uvicorn[standard]
+pydantic
+pandas
+numpy
+aiohttp
+requests
+cryptography

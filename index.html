@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DIL - Deterministic Integrity Layer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #e2e8f0;
+        }
+
+        .glass-effect {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .decision-approved {
+            color: #4ade80;
+            font-weight: 600;
+        }
+
+        .decision-flagged {
+            color: #fbbf24;
+            font-weight: 600;
+        }
+
+        .decision-blocked {
+            color: #f87171;
+            font-weight: 600;
+        }
+
+        .hash-display {
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            word-break: break-all;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 6px;
+            margin-top: 4px;
+        }
+
+        .input-field {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            color: #e2e8f0;
+            padding: 12px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: rgba(59, 130, 246, 0.5);
+            background: rgba(30, 41, 59, 0.95);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #3b82f6;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+        }
+
+        .alert-success {
+            background: rgba(74, 222, 128, 0.1);
+            border: 1px solid rgba(74, 222, 128, 0.3);
+            color: #86efac;
+        }
+
+        .table-row {
+            border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+            padding: 12px 0;
+            transition: background 0.2s ease;
+        }
+
+        .table-row:hover {
+            background: rgba(148, 163, 184, 0.05);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-approved {
+            background: rgba(74, 222, 128, 0.15);
+            color: #86efac;
+        }
+
+        .badge-flagged {
+            background: rgba(251, 191, 36, 0.15);
+            color: #fcd34d;
+        }
+
+        .badge-blocked {
+            background: rgba(248, 113, 113, 0.15);
+            color: #fca5a5;
+        }
+
+        .metric-card {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .metric-label {
+            font-size: 0.875rem;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="min-h-screen p-8">
+        <!-- Header -->
+        <div class="mb-12">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center">
+                    <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"></path>
+                        <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 1 1 0 000 2H3a1 1 0 00-1 1v12a1 1 0 001 1h14a1 1 0 001-1V6a1 1 0 00-1-1h3a1 1 0 000-2 2 2 0 00-2 2v12a2 2 0 01-2-2V5a1 1 0 00-1-1H5a1 1 0 00-1 1v12a1 1 0 001 1h10a1 1 0 000-2H6a1 1 0 01-1-1V5z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-4xl font-bold gradient-text">DIL</h1>
+                    <p class="text-sm text-gray-400">Deterministic Integrity Layer</p>
+                </div>
+            </div>
+            <p class="text-gray-300">Enterprise-grade audit & governance engine with SHA-256 chaining</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+            <!-- Metrics -->
+            <div class="metric-card">
+                <div class="metric-value" id="metricTotal">0</div>
+                <div class="metric-label">Total Audits</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value text-green-400" id="metricApproved">0</div>
+                <div class="metric-label">Approved</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value text-yellow-400" id="metricFlagged">0</div>
+                <div class="metric-label">Flagged</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value text-red-400" id="metricBlocked">0</div>
+                <div class="metric-label">Blocked</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Input Form -->
+            <div class="glass-effect rounded-xl p-6 h-fit">
+                <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
+                    <span class="w-1 h-6 bg-blue-500 rounded"></span>
+                    Submit Audit
+                </h2>
+
+                <div id="alerts"></div>
+
+                <form id="auditForm" onsubmit="submitAudit(event)">
+                    <!-- User ID -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">User ID</label>
+                        <input
+                            type="text"
+                            id="userId"
+                            class="input-field w-full"
+                            placeholder="user-12345"
+                            required
+                        >
+                    </div>
+
+                    <!-- Amount -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Amount (USD)</label>
+                        <input
+                            type="number"
+                            id="amount"
+                            class="input-field w-full"
+                            placeholder="50000"
+                            step="100"
+                            min="0"
+                            max="10000000"
+                            required
+                        >
+                        <div class="text-xs text-gray-500 mt-2">
+                            Hard limit: $1,000,000 | Soft limit: $100,000
+                        </div>
+                    </div>
+
+                    <!-- Risk Score -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">
+                            AI Risk Score <span id="riskValue">(0.50)</span>
+                        </label>
+                        <input
+                            type="range"
+                            id="riskScore"
+                            class="w-full"
+                            min="0"
+                            max="1"
+                            step="0.01"
+                            value="0.5"
+                            oninput="updateRiskValue(this.value)"
+                        >
+                        <div class="text-xs text-gray-500 mt-2">
+                            Hard limit: < 0.50 | Soft limit: 0.50-0.70
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button
+                        type="submit"
+                        class="btn-primary w-full"
+                        id="submitBtn"
+                    >
+                        <span id="submitText">Process Audit</span>
+                        <span id="submitSpinner" class="loading ml-2" style="display: none;"></span>
+                    </button>
+                </form>
+
+                <!-- Chain Info -->
+                <div class="mt-8 pt-6 border-t border-gray-700">
+                    <h3 class="text-sm font-medium text-gray-300 mb-3">SHA-256 Chain</h3>
+                    <div class="text-xs text-gray-400">
+                        <div class="flex justify-between mb-1">
+                            <span>Chain Depth:</span>
+                            <span id="chainDepth" class="font-mono">0</span>
+                        </div>
+                        <div class="flex justify-between mb-1">
+                            <span>Integrity:</span>
+                            <span id="chainIntegrity" class="font-mono text-green-400">✓ Valid</span>
+                        </div>
+                        <div class="mt-3 pt-3 border-t border-gray-700">
+                            <span class="block text-xs font-medium text-gray-400 mb-1">Latest Hash:</span>
+                            <div class="hash-display" id="latestHash">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Audit Results -->
+            <div class="lg:col-span-2 glass-effect rounded-xl p-6">
+                <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
+                    <span class="w-1 h-6 bg-blue-500 rounded"></span>
+                    Recent Audits
+                </h2>
+
+                <div id="resultsContainer" class="space-y-4">
+                    <div class="text-center text-gray-400 py-8">
+                        No audits yet. Submit a transaction to get started.
+                    </div>
+                </div>
+
+                <div class="mt-6 pt-6 border-t border-gray-700">
+                    <button
+                        class="text-sm text-blue-400 hover:text-blue-300 transition"
+                        onclick="viewFullLedger()"
+                    >
+                        View Full Ledger &rarr;
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Full Ledger -->
+    <div id="ledgerModal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+        <div class="glass-effect rounded-xl p-8 max-w-4xl max-h-96 overflow-y-auto w-full">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">Full Audit Ledger</h2>
+                <button onclick="closeLedgerModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+            </div>
+            <div id="ledgerContent" class="space-y-2 text-sm">
+                <div class="text-center text-gray-400">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let API_BASE = null;
+        const CANDIDATE_PORTS = [5001, 8000, 8080, 5000];
+
+        async function probeHealth(port) {
+            try {
+                const res = await fetch(`http://localhost:${port}/health`, { method: 'GET', headers: { 'Accept': 'application/json' }, cache: 'no-cache' });
+                return res.ok;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        async function detectApiBase() {
+            for (const p of CANDIDATE_PORTS) {
+                const ok = await probeHealth(p);
+                if (ok) {
+                    API_BASE = `http://localhost:${p}`;
+                    console.info(`Using API backend at ${API_BASE}`);
+                    return API_BASE;
+                }
+            }
+            // none found
+            console.error('No API backend found on candidate ports', CANDIDATE_PORTS);
+            API_BASE = `http://localhost:${CANDIDATE_PORTS[0]}`; // default for diagnostics
+            return API_BASE;
+        }
+
+        // Update risk score display
+        function updateRiskValue(value) {
+            document.getElementById("riskValue").textContent = `(${parseFloat(value).toFixed(2)})`;
+        }
+
+        // Submit audit form
+        async function submitAudit(event) {
+            event.preventDefault();
+
+            const userId = document.getElementById("userId").value;
+            const amount = parseFloat(document.getElementById("amount").value);
+            const riskScore = parseFloat(document.getElementById("riskScore").value);
+
+            const submitBtn = document.getElementById("submitBtn");
+            const submitText = document.getElementById("submitText");
+            const submitSpinner = document.getElementById("submitSpinner");
+
+            submitBtn.disabled = true;
+            submitText.style.display = "none";
+            submitSpinner.style.display = "inline-block";
+
+            try {
+                const response = await fetch(`${API_BASE}/audit`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                        "X-Request-ID": `REQ-${Date.now()}`,
+                        "X-API-KEY": "dil-demo-key-2026"
+                    },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        amount: amount,
+                        ai_risk_score: riskScore
+                    })
+                });
+
+                if (!response.ok) {
+                    let errText = null;
+                    try {
+                        const error = await response.json();
+                        errText = error.detail || JSON.stringify(error);
+                    } catch (e) {
+                        try {
+                            errText = await response.text();
+                        } catch (e2) {
+                            errText = response.statusText || `HTTP ${response.status}`;
+                        }
+                    }
+                    showAlert("error", `Error: ${errText}`);
+                    return;
+                }
+
+                const result = await response.json();
+                addAuditResult(result);
+                showAlert("success", `Decision: ${result.decision}`);
+
+                // Refresh metrics
+                await refreshMetrics();
+
+            } catch (error) {
+                try { console.error("Full Error Details:", error); } catch (e) { console.error("Network error:", error); }
+                let msg = 'Unknown network error';
+                if (error) {
+                    if (error.message) {
+                        msg = error.message;
+                    } else if (typeof error === 'object') {
+                        try {
+                            msg = JSON.stringify(error, null, 2);
+                        } catch (e) {
+                            msg = String(error);
+                        }
+                    } else {
+                        msg = String(error);
+                    }
+                }
+                showAlert("error", `Error: ${msg}`);
+                console.error('API_BASE:', API_BASE);
+            } finally {
+                submitBtn.disabled = false;
+                submitText.style.display = "inline";
+                submitSpinner.style.display = "none";
+            }
+        }
+
+        // Add audit result to display
+        function addAuditResult(result) {
+            const container = document.getElementById("resultsContainer");
+
+            // Clear placeholder if first result
+            if (container.querySelector(".text-center")) {
+                container.innerHTML = "";
+            }
+
+            const decisionClass = {
+                "APPROVED": "decision-approved",
+                "FLAGGED": "decision-flagged",
+                "BLOCKED": "decision-blocked"
+            }[result.decision];
+
+            const badgeClass = {
+                "APPROVED": "badge-approved",
+                "FLAGGED": "badge-flagged",
+                "BLOCKED": "badge-blocked"
+            }[result.decision];
+
+            const resultHTML = `
+                <div class="table-row">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <div class="font-semibold">${result.user_id}</div>
+                            <div class="text-sm text-gray-400">${result.request_id}</div>
+                        </div>
+                        <span class="badge ${badgeClass}">${result.decision}</span>
+                    </div>
+                    <div class="text-sm text-gray-300 mb-2">
+                        Amount: <span class="font-semibold">$${result.amount.toLocaleString()}</span> | 
+                        Risk: <span class="font-semibold">${(result.ai_risk_score * 100).toFixed(0)}%</span>
+                    </div>
+                    <div class="text-xs text-gray-400 mb-3">${result.reason}</div>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                            <div class="text-gray-500">SHA-256</div>
+                            <div class="hash-display">${result.sha256_hash}</div>
+                        </div>
+                        <div>
+                            <div class="text-gray-500">Governance</div>
+                            <div class="hash-display">${result.governance_hash}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            container.insertAdjacentHTML("afterbegin", resultHTML);
+
+            // Update chain info
+            document.getElementById("chainDepth").textContent = result.chain_depth;
+            document.getElementById("latestHash").textContent = result.sha256_hash;
+        }
+
+        // Refresh metrics
+        async function refreshMetrics() {
+            try {
+                const response = await fetch(`${API_BASE}/ledger`, { headers: { "Accept": "application/json", "X-API-KEY": "dil-demo-key-2026" } });
+                if (!response.ok) return;
+
+                const data = await response.json();
+                const records = data.records;
+
+                const approved = records.filter(r => r.decision === "APPROVED").length;
+                const flagged = records.filter(r => r.decision === "FLAGGED").length;
+                const blocked = records.filter(r => r.decision === "BLOCKED").length;
+
+                document.getElementById("metricTotal").textContent = records.length;
+                document.getElementById("metricApproved").textContent = approved;
+                document.getElementById("metricFlagged").textContent = flagged;
+                document.getElementById("metricBlocked").textContent = blocked;
+
+                // Update chain integrity
+                const integrityStatus = data.chain_integrity ? "✓ Valid" : "✗ Invalid";
+                const integrityColor = data.chain_integrity ? "text-green-400" : "text-red-400";
+                document.getElementById("chainIntegrity").className = `font-mono ${integrityColor}`;
+                document.getElementById("chainIntegrity").textContent = integrityStatus;
+
+            } catch (error) {
+                console.error("Error refreshing metrics:", error);
+            }
+        }
+
+        // View full ledger
+        async function viewFullLedger() {
+            const modal = document.getElementById("ledgerModal");
+            const content = document.getElementById("ledgerContent");
+
+            modal.classList.remove("hidden");
+            content.innerHTML = '<div class="text-center text-gray-400">Loading...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/ledger`, { headers: { "Accept": "application/json", "X-API-KEY": "dil-demo-key-2026" } });
+                if (!response.ok) throw new Error("Failed to fetch ledger");
+
+                const data = await response.json();
+                const records = data.records;
+
+                if (records.length === 0) {
+                    content.innerHTML = '<div class="text-center text-gray-400">No records yet</div>';
+                    return;
+                }
+
+                let html = '<table class="w-full text-left"><tbody>';
+                records.forEach((record, idx) => {
+                    html += `
+                        <tr class="border-b border-gray-700 py-2">
+                            <td class="py-2">
+                                <div class="font-semibold">${record.request_id}</div>
+                                <div class="text-xs text-gray-400">${record.user_id} - $${record.amount.toLocaleString()}</div>
+                            </td>
+                            <td class="text-right">
+                                <span class="badge ${ {
+                                    'APPROVED': 'badge-approved',
+                                    'FLAGGED': 'badge-flagged',
+                                    'BLOCKED': 'badge-blocked'
+                                }[record.decision]}">${record.decision}</span>
+                            </td>
+                        </tr>
+                    `;
+                });
+                html += '</tbody></table>';
+                content.innerHTML = html;
+
+            } catch (error) {
+                content.innerHTML = `<div class="text-center text-red-400">Error: ${error.message}</div>`;
+            }
+        }
+
+        // Close ledger modal
+        function closeLedgerModal() {
+            document.getElementById("ledgerModal").classList.add("hidden");
+        }
+
+        // Show alert
+        function showAlert(type, message) {
+            const alertsDiv = document.getElementById("alerts");
+            let text = message;
+            if (typeof message === 'object') {
+                try { text = JSON.stringify(message); } catch (e) { text = String(message); }
+            }
+            const alertHTML = `
+                <div class="alert alert-${type}">
+                    ${text}
+                </div>
+            `;
+            alertsDiv.insertAdjacentHTML("beforeend", alertHTML);
+            setTimeout(() => alertsDiv.innerHTML = "", 5000);
+        }
+
+        // Initialize once API base is detected
+        async function initApp() {
+            await detectApiBase();
+            // first metrics load
+            try { await refreshMetrics(); } catch (e) { console.error('refreshMetrics initial error', e); }
+            setInterval(refreshMetrics, 5000);
+        }
+
+        initApp();
+    </script>
+</body>
+</html>
