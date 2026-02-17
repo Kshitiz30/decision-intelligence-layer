@@ -1,5 +1,5 @@
 # Decision Intelligence Layer (DIL) - Core Requirements
-# Updated for Python 3.13 compatibility (using latest versions for wheel availability)
+# Vercel Python Serverless Compatible
 
 fastapi
 uvicorn[standard]
