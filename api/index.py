@@ -14,11 +14,10 @@ import logging
 import os
 from typing import Dict, Any, List
 
-# --- DIAGNOSTIC STARTUP LOGGING ---
-with open('startup.log', 'a') as f:
-    import datetime
-    f.write(f"\n[{datetime.datetime.now()}] DIL Vercel Serverless Starting Up...\n")
-# ---------------------------------
+# Configure console logging for Vercel serverless environment
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("DIL_API")
+logger.info("DIL Vercel Serverless Starting Up...")
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
@@ -30,13 +29,6 @@ import uvicorn
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from dil_engine import get_dil_engine, AuditRequest, Decision
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s"
-)
-logger = logging.getLogger("DIL_API")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FASTAPI APP INITIALIZATION
